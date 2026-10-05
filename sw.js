@@ -1,6 +1,6 @@
 // Offline support: serve from cache immediately, refresh the cache in the background.
 // Bump CACHE when adding new files to ASSETS.
-const CACHE = 'quiz-drill-v1';
+const CACHE = 'quiz-drill-v2';
 const ASSETS = [
   './',
   './index.html',

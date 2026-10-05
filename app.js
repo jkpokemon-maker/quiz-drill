@@ -212,6 +212,7 @@
 
   function startSession(items) {
     session = { items, i: 0, results: [], current: null, order: null };
+    enterSubpage();
     renderQuestion();
   }
 
@@ -316,7 +317,7 @@
     } else if (t.dataset.action === 'quit') {
       commitCurrent();
       if (session.results.length) renderSummary();
-      else renderHome();
+      else goHome();
     }
   }
 
@@ -357,12 +358,13 @@
     const a = t.dataset.action;
     if (a === 'retry') startSession(shuffle(session.results.filter(r => !r.ok).map(r => r.q)));
     else if (a === 'again') onHomeClick({ dataset: { action: 'start' } });
-    else if (a === 'home') renderHome();
+    else if (a === 'home') goHome();
   }
 
   function renderStats() {
     view = 'stats';
     session = null;
+    enterSubpage();
     const panels = Object.entries(SUBJECTS).map(([key, s]) => {
       const sum = subjectSummary(key);
       const rows = topicsFor(key).map(topic => {
@@ -403,6 +405,7 @@
     }).join('');
 
     app.innerHTML = `<section>
+      <div class="back-row"><button type="button" class="link" data-action="back">← Back</button></div>
       ${panels}
       <div class="panel">
         <p class="hint" style="margin-top:0">“Mastered” means answered correctly ${MASTERED_BOX} times in a row across spaced reviews. Progress is stored only in this browser.</p>
@@ -412,7 +415,8 @@
   }
 
   function onStatsClick(t) {
-    if (t.dataset.action === 'reset' && confirm('Erase all quiz progress in this browser?')) {
+    if (t.dataset.action === 'back') goHome();
+    else if (t.dataset.action === 'reset' && confirm('Erase all quiz progress in this browser?')) {
       state.progress = {};
       state.genStats = {};
       save();
@@ -444,12 +448,39 @@
     }
   });
 
-  document.getElementById('homeBtn').addEventListener('click', () => {
-    if (view === 'quiz' && session && session.results.length && !confirm('Leave this session?')) return;
+  // Screens other than home get one history entry, so the phone's back button
+  // (or back gesture) returns to home instead of closing the installed app.
+  let pushed = false;
+  let leaving = false;
+  function enterSubpage() {
+    if (pushed) return;
+    history.pushState({ quizDrill: true }, '');
+    pushed = true;
+  }
+  const midSession = () => view === 'quiz' && session && session.results.length > 0;
+  function goHome() {
+    if (pushed) {
+      leaving = true;
+      history.back(); // popstate renders home
+    } else renderHome();
+  }
+  window.addEventListener('popstate', () => {
+    if (!pushed) return;
+    if (!leaving && midSession() && !confirm('Leave this session?')) {
+      history.pushState({ quizDrill: true }, '');
+      return;
+    }
+    leaving = false;
+    pushed = false;
     renderHome();
   });
+
+  document.getElementById('homeBtn').addEventListener('click', () => {
+    if (midSession() && !confirm('Leave this session?')) return;
+    goHome();
+  });
   document.getElementById('statsBtn').addEventListener('click', () => {
-    if (view === 'quiz' && session && session.results.length && !confirm('Leave this session?')) return;
+    if (midSession() && !confirm('Leave this session?')) return;
     renderStats();
   });
 
